@@ -1,0 +1,1 @@
+delete demo_gimmicks-deep-dive.md
