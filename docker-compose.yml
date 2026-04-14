@@ -1,0 +1,50 @@
+services:
+  singlestore:
+    image: ghcr.io/singlestore-labs/singlestoredb-dev:latest
+    ports:
+      - "3306:3306"
+      - "8080:8080"
+      - "9000:9000"
+    environment:
+      ROOT_PASSWORD: ${SINGLESTORE_PASSWORD:-password}
+      SINGLESTORE_LICENSE: ${SINGLESTORE_LICENSE:-}
+    volumes:
+      - singlestore_data:/data
+    healthcheck:
+      test: ["CMD", "singlestore", "-p${SINGLESTORE_PASSWORD:-password}", "-e", "SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    ports:
+      - "8000:8000"
+    depends_on:
+      singlestore:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      SINGLESTORE_HOST: singlestore
+      AUTONOMOUS_LOOP_INTERVAL_SECONDS: ${AUTONOMOUS_LOOP_INTERVAL_SECONDS:-5}
+    volumes:
+      - ./api:/app/api
+      - ./schema:/app/schema
+      - ./simulator:/app/simulator
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_WS_URL: ws://localhost:8000
+
+volumes:
+  singlestore_data:
